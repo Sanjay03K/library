@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Library Management System</title>
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="home_display">
+        <center><h3>E-Library Home Page</h3></center>
+        <br>
+        <p class="border" onclick="get_list()"><img src="assets/images/hand.png" alt="hand"> &nbsp;Browse List</p>
+        <br>
+        <p class="border" onclick="get_book()"><img src="assets/images/hand.png" alt="hand"> &nbsp;Request Books</p>
+        <br>
+        <p class="border" onclick="return_book()"><img src="assets/images/hand.png" alt="hand"> &nbsp;Return Books</p>
+        <br>
+        <p class="border" onclick="pay_fine()"><img src="assets/images/hand.png" alt="hand"> &nbsp;Pay Fine</p>
+        <br>
+        <p class="border" onclick="logout()"><img src="assets/images/hand.png" alt="hand"> &nbsp;Log out</p>
+        <br>
+    </div>
+    <div id="data_display" style="display: none;">
+        <ul id="list_elements">
+        </ul>
+        <input type="button" value="Go back" onclick="go_home()">
+    </div>
+    <div id="request_books" style="display: none;">
+        <h4>Request a Book</h4>
+        <select name="books" id="books" onchange="get_book_details(this)">
+        </select>   
+        <br>
+        <section id="hiddensec" style="display: none;">
+            <p id="bname"></p>
+            <p id="bauthor"></p>
+            <p id="bdescription"></p>
+            <p id="bavailability"></p>
+            <input type="button" value="place order" onclick="place_order()">
+        </section>
+        <h4 id="success" style="color: green;"></h4>
+        <input type="button" value="Go back" onclick="go_home()">
+    </div>
+    <div id="return_books" style="display: none;">
+        <h4 id="noreturn" style="color: green;"></h4>
+        <select name="breturn" id="breturn" onchange="get_return_details(this)">
+        </select>
+        <p id="hidedate"></p>
+        <p id="showfine" style="color: green;"></p>
+        <input type="button" value="Check Due" onclick="check_fine()" id="hidefine">
+        <input type="button" value="Submit Book" onclick="submit_book()" id="submitbook">
+        <br>
+        <input type="button" value="Go back" onclick="go_home()">
+    </div>
+    <div id="pay_fine" style="display: none;">
+        <p id="final"></p>
+        <h4 id="nofine" style="color: blue;"></h4>
+        <select name="fpaylist" id="fpaylist" onchange="select_for_fine(this)">
+        </select>
+        <p id="finepay"></p>
+        <br>
+        <input type="button" value="Pay fine & return book" onclick="pay_the_fine()" id="phidebtn">
+        <br>
+        <input type="button" value="Go back" onclick="go_home()">
+    </div>
+    <script>
+        //pay the fine
+        function pay_the_fine() {
+            var params = new URLSearchParams(window.location.search)
+            $.get("payFine?username="+params.get('username')+"&book="+localStorage.getItem("book"), function(data){
+                document.getElementById("nofine").style.display = "none";
+                document.getElementById("fpaylist").style.display = "none";
+                document.getElementById("finepay").style.display = "none";
+                document.getElementById("phidebtn").style.display = "none";
+                document.getElementById("final").innerHTML = data;
+                document.getElementById("final").style.color = "blue";
+                document.getElementById("final").style.display = "block";
+            })
+        }
+
+        //select fine
+        function select_for_fine(val) {
+            document.getElementById('phidebtn').style.display="none"
+            document.getElementById('finepay').innerHTML = "";
+            var selectedOption = val.options[val.selectedIndex];
+            var fine = selectedOption.getAttribute('name');
+            var name = selectedOption.text;
+            localStorage.setItem("book",name);
+            localStorage.setItem("fine",fine);
+            document.getElementById('finepay').innerHTML = "Fine to be paid : Rs "+fine;
+            document.getElementById('phidebtn').style.display="block";
+        }
+
+        //submit book
+        function submit_book() {
+            var params = new URLSearchParams(window.location.search)
+            $.get("submitBook?id="+localStorage.getItem("book")+"&username="+params.get('username'), function(data){
+                document.getElementById("submitbook").style.display = "none"; 
+                document.getElementById("noreturn").style.display = "none";       
+                document.getElementById("breturn").style.display = "none";       
+                document.getElementById("hidedate").style.display = "none";  
+                document.getElementById("showfine").style.color = "blue";
+                document.getElementById("showfine").innerHTML = data;
+            })
+        }
+
+        //check for fine
+        function check_fine() {
+            var params = new URLSearchParams(window.location.search)
+            var date1 = new Date(localStorage.getItem("date"));
+            var today = new Date();
+            var dd = today.getDate();
+            var mm = today.getMonth()+1; //January is 0!
+            var yyyy = today.getFullYear();
+            if(dd<10){dd='0'+dd} if(mm<10){mm='0'+mm} today = mm+'/'+dd+'/'+yyyy;
+            var date2 = new Date(today);
+            var Difference_In_Time = date2.getTime() - date1.getTime();
+            var Difference_In_Days = Difference_In_Time / (1000 * 3600 * 24);
+            if (Difference_In_Days <= 10) {
+                document.getElementById("showfine").style.color = "green";
+                document.getElementById("showfine").innerHTML = "No fine to be paid. You can submit this book.";
+                document.getElementById("hidefine").style.display = "none";        
+                document.getElementById("submitbook").style.display = "block";    
+            } else {
+                var cost = Difference_In_Days;
+                $.get("fineInsert?id="+localStorage.getItem("book")+"&username="+params.get('username')+"&fine="+cost, function(data){
+                    document.getElementById("showfine").style.color = "red";
+                    document.getElementById("showfine").innerHTML = data;
+                    document.getElementById("hidefine").style.display = "none";        
+                })
+            }
+        }
+
+        //place order
+        function place_order() {
+            const params = new URLSearchParams(window.location.search)
+            var book_id = localStorage.getItem("id");
+            var count = document.getElementById("bavailability").innerHTML;
+            count = count.replace("Availability : ",'');
+            if (count == 0) {
+                alert("Book is unavailable");
+            }
+            else{
+                $.get("purchase?id="+book_id+"&username="+params.get('username'), function(data){
+                    if (data.indexOf("You cannot purchase more than one count of a particular book.")!=-1) {
+                        document.getElementById("success").innerHTML = data;
+                        document.getElementById("bavailability").innerHTML ="Availability : " +count;
+                    }
+                    else{
+                        count = count-1;
+                        document.getElementById("success").innerHTML = data;
+                        document.getElementById("bavailability").innerHTML ="Availability : " +count;
+                    }
+                })
+            }
+        }
+
+        //book details
+        function get_book_details(val) {
+            document.getElementById("submitbook").style.display = "none";
+            document.getElementById("hiddensec").style.display = "none";
+            document.getElementById("success").innerHTML = '';
+            var selectedOption = val.options[val.selectedIndex];
+            // var name = selectedOption.getAttribute('name');
+            var name = selectedOption.text;
+            localStorage.setItem("id",name);
+            $.get("getBooks", function(data){
+                var arr = JSON.parse(data);
+                arr.filter((val)=>{ 
+                    if (val.name == name) {
+                        document.getElementById("hiddensec").style.display = "block";
+                        document.getElementById("bname").innerHTML = "Book Name : " + val.name;
+                        document.getElementById("bauthor").innerHTML = "Author : " + val.author;
+                        document.getElementById("bdescription").innerHTML = "Description : " + val.description;
+                        document.getElementById("bavailability").innerHTML = "Availability : " + val.availability;
+                    }
+                })
+            });
+        }
+
+        //return book details
+        function get_return_details(val) {
+            document.getElementById("submitbook").style.display = "none";
+            document.getElementById("hidefine").style.display = "none";
+            document.getElementById("hidedate").innerHTML = "";
+            document.getElementById("showfine").innerHTML = "";
+            var selectedOption = val.options[val.selectedIndex];
+            var date = selectedOption.getAttribute('name');
+            localStorage.setItem("date",date);
+            localStorage.setItem("book",selectedOption.text);
+            if(date!=null){
+                document.getElementById("hidedate").innerHTML = "Book purchased on "+date;
+                document.getElementById("hidefine").style.display = "block";
+            }
+        }
+
+        //browse books
+        function get_list() {
+            const myNode = document.getElementById("list_elements");
+            while (myNode.firstChild) {
+                myNode.removeChild(myNode.lastChild);
+            }
+            document.getElementById("home_display").style.display = "none";
+            document.getElementById("data_display").style.display = "block";
+            $.get("getBooks", function(data){
+                var arr = JSON.parse(data);
+                arr.map((val)=>{ 
+                    var a = document.createElement("li");
+                    var b = document.createElement("br");
+                    var c = document.getElementById("list_elements").appendChild(a);
+                    c.innerHTML = val.name;
+                    document.getElementById("list_elements").appendChild(b);
+                })
+            });
+        }
+
+        // display functions
+        function pay_fine() {
+            document.getElementById("final").style.display = "none";
+            document.getElementById('phidebtn').style.display="none";
+            document.getElementById('finepay').innerHTML = "";
+            document.getElementById("nofine").style.display = "block";
+            document.getElementById("nofine").innerHTML = '';
+            var myNode = document.getElementById("fpaylist");
+            while (myNode.firstChild) {
+                myNode.removeChild(myNode.lastChild);
+            }
+            var params = new URLSearchParams(window.location.search)
+            document.getElementById("home_display").style.display = "none";
+            document.getElementById("pay_fine").style.display = "block";
+            document.getElementById("fpaylist").style.display = 'none';
+            $.get("displayFine?username="+params.get('username'), function(data){
+                var arr = JSON.parse(data);
+                if (arr.length == 0) {
+                    document.getElementById("nofine").style.color = "blue";
+                    document.getElementById("nofine").innerHTML = "Return a book to check for fine to pay";
+                } else {
+                    document.getElementById("fpaylist").style.display = "block";
+                    document.getElementById("nofine").innerHTML = "Select a book for which you want to pay fine";
+                    document.getElementById("nofine").style.color = "white";
+                    var b = document.createElement("option");
+                    var d = document.getElementById("fpaylist").appendChild(b);
+                    b.innerHTML = "Select Book"
+                    arr.map((val)=>{
+                        var a = document.createElement("option");
+                        a.setAttribute("name", val.fine);
+                        var c = document.getElementById("fpaylist").appendChild(a);
+                        c.innerHTML = val.book_name;
+                    })
+                }
+            })
+        }
+
+        //Return Books
+        function return_book() {
+            document.getElementById("noreturn").style.display = "block";       
+            document.getElementById("submitbook").style.display = "none";
+            document.getElementById("hidefine").style.display = "none";
+            document.getElementById("hidedate").innerHTML = "";
+            document.getElementById("showfine").innerHTML = "";
+            var myNode = document.getElementById("breturn");
+            while (myNode.firstChild) {
+                myNode.removeChild(myNode.lastChild);
+            }
+            document.getElementById("noreturn").innerHTML = '';
+            document.getElementById("noreturn").style.color = "green";
+            document.getElementById("breturn").style.display = "none";
+            const params = new URLSearchParams(window.location.search)
+            document.getElementById("home_display").style.display = "none";
+            document.getElementById("return_books").style.display = "block";
+            $.get("returnBook?username="+params.get('username'), function(data){
+                var arr = JSON.parse(data);
+                if (arr.length == 0) {
+                    document.getElementById("noreturn").innerHTML = "No books to be returned";
+                } else {
+                    document.getElementById("breturn").style.display = "block";
+                    document.getElementById("noreturn").innerHTML = "Select a book to be returned";
+                    document.getElementById("noreturn").style.color = "white";
+                    var b = document.createElement("option");
+                    var d = document.getElementById("breturn").appendChild(b);
+                    b.innerHTML = "Select Book"
+                    arr.filter((val)=>{
+                        if(val.username == params.get('username')){
+                            var a = document.createElement("option");
+                            a.setAttribute("name", val.date);
+                            var c = document.getElementById("breturn").appendChild(a);
+                            c.innerHTML = val.book_id;
+                        }
+                    })
+                }
+            });
+        }
+
+        //Buy Books
+        function get_book() {
+            document.getElementById("success").innerHTML = '';
+            document.getElementById("hiddensec").style.display = "none";
+            var myNode = document.getElementById("books");
+            while (myNode.firstChild) {
+                myNode.removeChild(myNode.lastChild);
+            }
+            document.getElementById("home_display").style.display = "none";
+            document.getElementById("request_books").style.display = "block";
+            var b = document.createElement("option");
+            var d = document.getElementById("books").appendChild(b);
+            b.innerHTML = "Select Book"
+            $.get("getBooks", function(data){
+                var arr = JSON.parse(data);
+                arr.map((val)=>{ 
+                    var a = document.createElement("option");
+                    a.setAttribute("name", val.id)
+                    var c = document.getElementById("books").appendChild(a);
+                    c.innerHTML = val.name;
+                })
+            });
+        }
+
+        //Home page
+        function go_home() {
+            document.getElementById("home_display").style.display = "block";
+            document.getElementById("data_display").style.display = "none";
+            document.getElementById("request_books").style.display = "none";
+            document.getElementById("return_books").style.display = "none";
+            document.getElementById("pay_fine").style.display = "none";
+        }
+
+        //logout
+        function logout() {
+            window.location.href = "http://localhost:8080/library/login.html";
+        }
+    </script>
+</body>
+</html>
